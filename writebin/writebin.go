@@ -1,16 +1,18 @@
-/* Create a binary file from textual byte values. */
+// -*- fill-column: 100 -*-
+//
+// Create a binary file from textual byte values, see help text below.
+
 package main
 
 import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+  "log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-
-	S "github.com/lars-t-hansen/scripting"
 )
 
 const helpText = `		
@@ -58,7 +60,7 @@ func main() {
 	var input string
 	if len(args) < 2 {
 		bytes, err := ioutil.ReadAll(os.Stdin)
-		S.Try(err)
+		check(err)
 		input = string(bytes)
 	} else {
 		input = strings.Join(args[1:], ",")
@@ -68,16 +70,22 @@ func main() {
 	bytes := []byte{}
 	for _, bs := range re.Split(strings.Trim(input, " \t\n\r"), -1) {
 		n, err := strconv.ParseUint(bs, 0, 8)
-		S.Try(err)
+		check(err)
 		bytes = append(bytes, byte(n))
 	}
 
 	outfile := os.Stdout
 	if outFilename != "-" {
 		outfile, err = os.Create(outFilename)
-		S.Try(err)
+		check(err)
 		defer outfile.Close()
 	}
 	_, err = outfile.Write(bytes)
-	S.Try(err)
+	check(err)
+}
+
+func check(err error) {
+	if err != nil {
+		log.Panic(err)
+	}
 }
