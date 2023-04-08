@@ -1,3 +1,5 @@
+// -*- fill-column: 100 -*-
+
 /* Usage: make-nonunified rootdir-name
  *
  * Scan the directory tree rooted at rootdir-name and rewrite UNIFIED_SOURCES to SOURCES
@@ -6,8 +8,8 @@
 package main
 
 import (
-  "flag"
-  "fmt"
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
