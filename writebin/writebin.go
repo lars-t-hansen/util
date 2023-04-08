@@ -8,7 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-  "log"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
