@@ -1,42 +1,49 @@
 // Print a random selection of lines from a file, in the original order.  Reads from stdin, writes
 // to stdout.
 //
-// The only parameter is a floating point value in the range [0,100] indicating the percentage of
-// lines we want.
-//
 // This is not intended to be clever.  Extremely Huge (tm) files may defeat it.
 
 package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"sort"
-	"strconv"
+)
+
+var (
+	atLeast = flag.Uint("atleast", 0, "Print at least this many lines (up to file length)")
+	pct = flag.Float64("pct", 0, "Print this percentage of lines")
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatalf("Usage: %s percentage", os.Args[0])
+	flag.Parse()
+	if *atLeast == 0 && *pct == 0 {
+		fmt.Fprintln(os.Stderr, "At least one of -atleast and -pct is required.\n")
+		flag.Usage()
+		os.Exit(2)
 	}
-	pct, err := strconv.ParseFloat(os.Args[1], 64)
-	if err != nil || pct < 0 || pct > 100 {
-		log.Fatalf("Usage: %s percentage", os.Args[0])
+	if *pct < 0 || *pct > 100 {
+		fmt.Fprintln(os.Stderr, "Percentage out of range")
+		os.Exit(2)
 	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	ls := make([]string, 0, 1000)
 	for scanner.Scan() {
 		ls = append(ls, scanner.Text())
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal("Scanner failed", err)
+		fmt.Fprintln(os.Stderr, "Scanner failed", err)
+		os.Exit(1)
 	}
+	*atLeast = min(*atLeast, uint(len(ls)))
 
 	// Number of selections
-	toPick := min(int(float64(len(ls))*pct/100), len(ls))
+	toPick := max(int(*atLeast), min(int(float64(len(ls))*(*pct)/100), len(ls)))
 	if toPick == 0 {
 		return
 	}
