@@ -32,6 +32,6 @@ func main() {
 			}
 			fmt.Fprint(output, strings.ReplaceAll(f, " ", "_"))
 		}
-		fmt.Fprintln(output, "")
+		fmt.Fprintln(output)
 	}
 }
