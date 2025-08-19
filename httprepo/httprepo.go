@@ -54,6 +54,15 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		filename := path.Clean(r.URL.Path)[1:]
+		if strings.HasPrefix(filename, "/") || strings.HasPrefix(filename, "..") {
+			if *verbose {
+				log.Printf("Bad file %s", filename)
+			}
+			w.WriteHeader(422)
+			return
+		}
+		// At this point, path.Join(dirName, filename) should give us a name below the dir always,
+		// necessary for operations not available through the `dir` object.
 		switch r.Method {
 		case "HEAD":
 			if *verbose {
@@ -64,6 +73,7 @@ func main() {
 			} else {
 				w.WriteHeader(200)
 			}
+
 		case "GET":
 			if *verbose {
 				log.Printf("GET %s", filename)
@@ -78,19 +88,28 @@ func main() {
 				return
 			}
 			w.WriteHeader(200)
-			// TODO: Maybe want to write some headers?  Defaults are probably OK for now.
 			// Ignore errors
 			w.Write(contents)
 
+		case "DELETE":
+			if *verbose {
+				log.Printf("DELETE %s", filename)
+			}
+			fullname := path.Join(dirName, filename)
+			if err := os.Remove(fullname); err != nil {
+				// Must return a success code for a file that was not there.  This is not the ideal
+				// way to do it, but Go's error reporting here is weak.
+				if _, err := dir.(fs.StatFS).Stat(filename); err != nil {
+					w.WriteHeader(204)
+				} else {
+					w.WriteHeader(404)
+				}
+			} else {
+				w.WriteHeader(204)
+			}
+
 		case "PUT":
 			fullname := path.Join(dirName, filename)
-			if strings.HasPrefix(fullname, "/") || strings.HasPrefix(fullname, "..") {
-				if *verbose {
-					log.Printf("Bad file %s %s", fullname, filename)
-				}
-				w.WriteHeader(422)
-				return
-			}
 			subdirname := path.Dir(fullname)
 			err := os.MkdirAll(subdirname, 0o777)
 			if err != nil {
@@ -120,6 +139,7 @@ func main() {
 				return
 			}
 			w.WriteHeader(204)
+
 		default:
 			if *verbose {
 				log.Printf("Bad method %s", r.Method)
