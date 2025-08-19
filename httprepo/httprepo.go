@@ -1,13 +1,14 @@
 // Manage a directory tree remotely over HTTP.
 //
 // GET /name will serve the file of that name or 404 if not present.
+// HEAD /name will serve the metadata
 //
 // PUT /name will replace the file or create a new one with the input given, and may create new
 // subdirectories.
 //
+// TODO: better metadata for GET/HEAD, notably mime type, mod date, and size
 // TODO: Could implement GET on .../ as a command to list the contents of that directory
 // TODO: Could implement DELETE
-// TODO: Could implement HEAD
 
 package main
 
@@ -54,6 +55,15 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		filename := path.Clean(r.URL.Path)[1:]
 		switch r.Method {
+		case "HEAD":
+			if *verbose {
+				log.Printf("HEAD %s", filename)
+			}
+			if _, err := dir.(fs.StatFS).Stat(filename); err != nil {
+				w.WriteHeader(404)
+			} else {
+				w.WriteHeader(200)
+			}
 		case "GET":
 			if *verbose {
 				log.Printf("GET %s", filename)
