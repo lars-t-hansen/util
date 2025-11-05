@@ -1,7 +1,7 @@
 package utils
 
 func example() {
-	opts := []Option{
+	opts := []Option[bool]{
 		Option{
 			Short: 'h',
 			Long: "help",
@@ -36,14 +36,14 @@ func example() {
 		},
 		Option{
 			Short: '-',
-			Handler: pushInputFile,
+			Handler: SetFlag(&namesFromStdin),
 		},
 		Option{
 			// Implicitly repeatable
 			Handler: pushInputFile,
 		},
 	}
-	if rest, err := GetOpts(opts, os.Args[0], os.Args[1:]); err != nil {
+	if rest, err := GetOpts(opts, true, os.Args[0], os.Args[1:]); err != nil {
 		...;
 		os.Exit(2)
 	}
