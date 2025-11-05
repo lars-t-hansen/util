@@ -27,13 +27,14 @@ type Option struct {
 //
 // Long names with values can use the syntax '--opt=value' or '--opt value'.
 //
-// Short names with values can be run together and can also be run together with a value for at most
-// one of these options, as in '-nkr1' for 'sort', equivalent to -n -k 1 -r; also '-nkr 1' is
-// accepted.  The boundary between option letters and value in the former case is where a letter is
-// not a valid option letter, so '-nk1r' won't work.
+// Short names can be run together and can also be run together with a value for at most one of the
+// options, as in '-nkr2' for 'sort(1)', equivalent to -n -k 2 -r; also '-nkr 2' is accepted.  The
+// boundary between option letters and value in the former case is where a letter is not a valid
+// option letter, so '-nk2r' won't work.
 //
 // Failure to validate the option table results in a panic.  Any error returned from GetOpts is an
-// error returned from one of the handlers, typically wrapped in an error explaining the context.
+// error returned from the parser due to an unknown option or from one of the handlers as a
+// validation error, the latter wrapped in a parser error explaining the context.
 //
 // Other than the default option, an option is not repeatably unless its Repeatable attribute is
 // set.
@@ -149,7 +150,7 @@ func GetOpts(options []Option, progname string, args []string) (rest []string, p
 			}
 		} else {
 			if !defaultHandler(a) {
-				parsErr = fmt.Errorf("Rejected argument \"%s\"", a)
+				parsErr = fmt.Errorf("Rejected non-argument value \"%s\"", a)
 				return
 			}
 		}
@@ -157,6 +158,7 @@ func GetOpts(options []Option, progname string, args []string) (rest []string, p
 	return
 }
 
+// A simple handler that will set a flag to true and always succeed
 func SetFlag(flagp *bool) func(string) error {
 	return func(_ string) error {
 		*flagp = true
@@ -164,6 +166,7 @@ func SetFlag(flagp *bool) func(string) error {
 	}
 }
 
+// A simple handler that will set a string to a given value and always succeed
 func SetString(stringp *string) func(string) error {
 	return func(s string) error {
 		*stringp = s
