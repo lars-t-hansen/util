@@ -80,7 +80,7 @@ func TestOpts(t *testing.T) {
 		"-",
 		"hello.c",
 		"--help",
-		"--etags=zappa",
+		"--etags=maytag",
 		"-Vxzappa",
 		"--onearg",
 		"true",
@@ -119,5 +119,8 @@ func TestOpts(t *testing.T) {
 	}
 	if !reflect.DeepEqual(oneArgs, []string{"zappa", "true", "false", "zupp"}) {
 		t.Fatal(oneArgs)
+	}
+	if systemEtagsCommand != "maytag" {
+		t.Fatal(systemEtagsCommand)
 	}
 }
