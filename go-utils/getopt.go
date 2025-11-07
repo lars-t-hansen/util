@@ -2,12 +2,17 @@
 // From https://github.com/lars-t-hansen/util/go-utils
 
 // GetOpts is a simple table-driven argument parser that is more or less compatible with GNU
-// getopt-style parsing.  The parser takes a table of options and handlers, a context argument to
-// pass to the handlers, and a list of arguments, and parses the arguments, invoking handlers for
-// the various option names for each argument.  Argument parsing stops at '--', any remaining
-// arguments are returned as a slice from the call.
+// getopt-style parsing.  The parser takes a table of options and handlers, and a list of
+// arguments, and parses the arguments, invoking handlers for the options encountered.
 //
-// An option can have a long and/or a short name.  If it has neither it is the default handler.
+// Argument parsing stops at a lone '--', any remaining arguments are returned as a slice from the
+// call.
+//
+// An argument that has no handler results in an error being returned.
+//
+// An option can have a long name (starting with '--') and/or a short name (starting with '-').  If
+// it has neither it is the default handler, which is invoked for non-option arguments that appear
+// before the lone '--'.
 //
 // An option can have the short name '-' (and no long name and take no value).  This is recognized
 // as a special case.
@@ -25,13 +30,20 @@
 // option letters and value in the former case is where a letter is not a valid option letter, so
 // '-nk2r' won't work as this is interpreted as '-n -k 2r'.
 //
-// Failure to validate the option table results in a panic.  Any error returned from GetOpts is an
-// error returned from the parser due to an unknown option or from one of the handlers as a
-// validation error, the latter usually wrapped in a parser error explaining the context.
+// Failure to validate the option table results in a panic.
 //
-// Other than the default option, an option is not repeatable unless its Repeatable attribute is
-// set.  (TODO: That is broken.  There's no reason to assume the default option should always be
-// repeatable, and no way to turn it off short of adding logic in the handler.)
+// Any error returned from GetOpts is an error returned from the parser due to an unhandled option
+// in the arguments or from one of the handlers as a validation error, the latter usually wrapped in
+// a parser error explaining the context.
+//
+// An option is not repeatable unless its Repeatable attribute is set (including the default
+// option).
+//
+// (An argument could be made that GetOpts should be parameterized over a context type and should
+// take a context value that it passes to the handlers.  I'm not doing this because it's not
+// normally needed and because using closures for handlers can accomplish the same when it is
+// needed.)
+
 package utils
 
 import (
@@ -40,64 +52,21 @@ import (
 	"strings"
 )
 
-type Option[Cx any] struct {
+type Option struct {
 	Short      rune
 	Long       string
 	Help       string
 	Value      bool
 	Repeatable bool
-	Handler    func(cx Cx, value string) error
+	Handler    func(value string) error
 }
 
 // Parse args, passing argument values to the handlers of options along with the cx, and return any
 // left-over arguments.
-func GetOpts[Cx any](options []Option[Cx], cx Cx, args []string) (rest []string, parseErr error) {
-	// These maps map the option name or character without the leading '-' or '--'.
-	short := make(map[rune]*Option[Cx])
-	long := make(map[string]*Option[Cx])
-	handled := make(map[any]bool)
-	var defaultHandler func(Cx, string) error
+func GetOpts(options []Option, args []string) ([]string, error) {
+	short, long, defaultOption := parseOptionTable(options)
 
-	// Parse the table.
-	for i := range options {
-		o := &options[i]
-		if o.Handler == nil {
-			panic(fmt.Sprintf("Option without handler at loc %d: short=%c long=%s", i, o.Short, o.Long))
-		}
-		if o.Short == 0 && o.Long == "" {
-			if defaultHandler != nil {
-				panic("Multiple default handlers")
-			}
-			defaultHandler = o.Handler
-		}
-		if o.Short != 0 {
-			if short[o.Short] != nil {
-				panic(fmt.Sprintf("Multiple definitions for short option %c", o.Short))
-			}
-			if o.Short == '-' {
-				if o.Long != "" {
-					panic("Long name defined for lone dash")
-				}
-				if o.Value {
-					panic("Lone dash cannot take a value")
-				}
-			}
-			short[o.Short] = o
-		}
-		if o.Long != "" {
-			if long[o.Long] != nil {
-				panic(fmt.Sprintf("Multiple definitions for long option %s", o.Long))
-			}
-			long[o.Long] = o
-		}
-	}
-	if defaultHandler == nil {
-		defaultHandler = func(_ Cx, _ string) error {
-			return fmt.Errorf("Additional arguments not allowed")
-		}
-	}
-
-	// Parse the options.
+	handled := make(map[*Option]bool)
 	argIx := 0
 	for argIx < len(args) {
 		arg := args[argIx]
@@ -105,76 +74,67 @@ func GetOpts[Cx any](options []Option[Cx], cx Cx, args []string) (rest []string,
 		if len(arg) > 0 && arg[0] == '-' {
 			if len(arg) > 1 && arg[1] == '-' {
 				if len(arg) == 2 {
-					rest = args[argIx:]
-					return
+					return args[argIx:], nil
 				}
 				arg = arg[2:]
 				optname, value, matched := strings.Cut(arg, "=")
 				opt := long[optname]
 				if opt == nil {
-					parseErr = fmt.Errorf("Unknown option \"--%s\"", optname)
-					return
+					return nil, fmt.Errorf("Unknown option \"--%s\"", optname)
 				}
-				if !opt.Repeatable && handled[optname] {
-					parseErr = fmt.Errorf("Repeated but unrepeatable option \"--%s\"", optname)
-					return
+				if !opt.Repeatable && handled[opt] {
+					return nil, fmt.Errorf("Repeated but unrepeatable option \"--%s\"", optname)
 				}
-				handled[optname] = true
+				handled[opt] = true
 				if !opt.Value && matched {
-					parseErr = fmt.Errorf("Option \"--%s\" does not take a value", optname)
-					return
+					return nil, fmt.Errorf("Option \"--%s\" does not take a value", optname)
 				}
 				if opt.Value && !matched {
 					if argIx == len(args) {
-						parseErr = fmt.Errorf("Missing value for option \"--%s\"", optname)
-						return
+						return nil, fmt.Errorf("Missing value for option \"--%s\"", optname)
 					}
 					value = args[argIx]
 					argIx++
 				}
-				parseErr = opt.Handler(cx, value)
-				if parseErr != nil {
-					parseErr = fmt.Errorf("Rejected option \"--%s\": %w", optname, parseErr)
-					return
+				err := opt.Handler(value)
+				if err != nil {
+					return nil, fmt.Errorf("Rejected option \"--%s\": %w", optname, err)
 				}
 			} else {
 				i := 0
 				if len(arg) > 1 {
 					i++
 				}
-				var needValue func(Cx, string) error
-				var optThatNeedsIt rune
+				var needValue *Option
 				for {
 					if i == len(arg) {
 						break
 					}
+					// TODO: this is going by byte value but should we not go by rune in the option
+					// string too?  Then we must also handle invalid UTF8 probably.
 					optname := rune(arg[i])
 					opt := short[optname]
-					i++
 					if opt == nil {
 						if i < 2 {
-							parseErr = fmt.Errorf("Illegal option")
-							return
+							return nil, fmt.Errorf("Illegal option")
 						}
 						break
 					}
-					if !opt.Repeatable && handled[optname] {
-						parseErr = fmt.Errorf("Repeated but unrepeatable option \"-%c\"", optname)
-						return
+					i++
+					if !opt.Repeatable && handled[opt] {
+						return nil, fmt.Errorf("Repeated but unrepeatable option \"-%c\"", optname)
 					}
-					handled[optname] = true
+					handled[opt] = true
 					if opt.Value {
 						if needValue != nil {
-							parseErr = fmt.Errorf("Multiple short options compete for a value")
-							return
+							return nil, fmt.Errorf("Multiple short options compete for a value")
 						}
-						needValue = opt.Handler
-						optThatNeedsIt = optname
-					} else {
-						parseErr = opt.Handler(cx, "")
-						if parseErr != nil {
-							return
-						}
+						needValue = opt
+						continue
+					}
+					err := opt.Handler("")
+					if err != nil {
+						return nil, err
 					}
 				}
 				if needValue != nil {
@@ -183,23 +143,74 @@ func GetOpts[Cx any](options []Option[Cx], cx Cx, args []string) (rest []string,
 						value = arg[i:]
 					} else {
 						if argIx == len(args) {
-							parseErr = fmt.Errorf("Missing value for option \"-%c\"", optThatNeedsIt)
-							return
+							return nil, fmt.Errorf("Missing value for option \"-%c\"", needValue.Short)
 						}
 						value = args[argIx]
 						argIx++
 					}
-					parseErr = needValue(cx, value)
-					if parseErr != nil {
-						return
+					err := needValue.Handler(value)
+					if err != nil {
+						return nil, err
 					}
 				}
 			}
 		} else {
-			parseErr = defaultHandler(cx, arg)
-			if parseErr != nil {
-				return
+			if !defaultOption.Repeatable && handled[defaultOption] {
+				return nil, fmt.Errorf("Repeated but unrepeatable default option")
 			}
+			handled[defaultOption] = true
+			err := defaultOption.Handler(arg)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return nil, nil
+}
+
+func parseOptionTable(
+	options []Option,
+) (short map[rune]*Option, long map[string]*Option, defaultOption *Option) {
+	short = make(map[rune]*Option)
+	long = make(map[string]*Option)
+
+	for optIx := range options {
+		opt := &options[optIx]
+		if opt.Handler == nil {
+			panic("Option without handler")
+		}
+		if opt.Short == 0 && opt.Long == "" {
+			if defaultOption != nil {
+				panic("Multiple default handlers")
+			}
+			defaultOption = opt
+		}
+		if opt.Short != 0 {
+			if short[opt.Short] != nil {
+				panic("Multiple definitions for short option")
+			}
+			if opt.Short == '-' {
+				if opt.Long != "" {
+					panic("Long name defined for lone dash")
+				}
+				if opt.Value {
+					panic("Lone dash cannot take a value")
+				}
+			}
+			short[opt.Short] = opt
+		}
+		if opt.Long != "" {
+			if long[opt.Long] != nil {
+				panic("Multiple definitions for long")
+			}
+			long[opt.Long] = opt
+		}
+	}
+	if defaultOption == nil {
+		defaultOption = &Option{
+			Handler: func(_ string) error {
+				return fmt.Errorf("Additional arguments not allowed")
+			},
 		}
 	}
 	return
@@ -207,7 +218,7 @@ func GetOpts[Cx any](options []Option[Cx], cx Cx, args []string) (rest []string,
 
 // PrintOpts prints the option names and help text of the options table in a sensible way on output,
 // as for a usage message.
-func PrintOpts[Cx any](output io.Writer, options []Option[Cx]) {
+func PrintOpts(output io.Writer, options []Option) {
 	// Print a line with short and long options
 	// Print help indented on next line
 	// Don't be fancy
@@ -219,16 +230,16 @@ func PrintOpts[Cx any](output io.Writer, options []Option[Cx]) {
 // We can have more of these...
 
 // A simple handler that will set a flag to true and always succeed
-func SetFlag[Cx any](flagp *bool) func(Cx, string) error {
-	return func(_ Cx, _ string) error {
+func SetFlag(flagp *bool) func(string) error {
+	return func(_ string) error {
 		*flagp = true
 		return nil
 	}
 }
 
 // A simple handler that will set a string to a given value and always succeed
-func SetString[Cx any](stringp *string) func(Cx, string) error {
-	return func(_ Cx, s string) error {
+func SetString(stringp *string) func(string) error {
+	return func(s string) error {
 		*stringp = s
 		return nil
 	}
