@@ -43,6 +43,10 @@
 // take a context value that it passes to the handlers.  I'm not doing this because it's not
 // normally needed and because using closures for handlers can accomplish the same when it is
 // needed.)
+//
+// TODO: Looking at tail(1), option values are sometimes optional (for --follow for example).  That
+// can't be expressed here and I'm not sure what the syntax would be.  For "--follow=" it's obvious,
+// but for "-f" and "--follow" it is not.  Need to look at the source.
 
 package utils
 
@@ -218,12 +222,46 @@ func parseOptionTable(
 
 // PrintOpts prints the option names and help text of the options table in a sensible way on output,
 // as for a usage message.
+//
+// It is printed as
+//
+//   -short-option, --long-option value
+//     Explanation
+//
+// where the short and long options are omitted as expected and "value" is either that word or the
+// first string in the help text that is enclosed in backticks (as for the Go flags system).  The
+// options are indented two spaces, the explanation four spaces, there is no automatic wrapping of
+// the text.
 func PrintOpts(output io.Writer, options []Option) {
-	// Print a line with short and long options
-	// Print help indented on next line
-	// Don't be fancy
 	for _, o := range options {
-		_ = o
+		if o.Help == "" || (o.Short == 0 && o.Long == "") {
+			continue
+		}
+		otext := "  "
+		if o.Short != 0 {
+			otext += fmt.Sprintf("-%c", o.Short)
+		}
+		if o.Long != "" {
+			if o.Short != 0 {
+				otext += ", "
+			}
+			otext += fmt.Sprintf("--%s", o.Long)
+		}
+		if o.Value {
+			vtext := "value"
+			if ix := strings.Index(o.Help, "`"); ix != -1 {
+				if iy := strings.Index(o.Help[ix+1:], "`"); iy != -1 {
+					iy += ix+1
+					if iy - ix > 1 {
+						vtext = strings.ToLower(o.Help[ix+1:iy])
+					}
+				}
+			}
+			otext += " " + vtext
+		}
+		fmt.Fprintln(output, otext)
+		fmt.Fprint(output, "    ")
+		fmt.Fprintln(output, o.Help)
 	}
 }
 
