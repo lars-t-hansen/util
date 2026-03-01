@@ -42,15 +42,16 @@ func run(patterns, input io.Reader, output io.Writer) {
 		oldText string
 		newText string
 	}
-	simple := make([]S, 0)
 
 	type C struct {
 		context string
 		matcher *regexp.Regexp
 		prefix  string
 	}
-	contextual := make([]C, 0)
 
+
+	var simple []S
+	var contextual []C
 	scanner := bufio.NewScanner(patterns)
 	for scanner.Scan() {
 		l := scanner.Text()
