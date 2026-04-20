@@ -4,10 +4,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 var (
@@ -23,7 +25,17 @@ func main() {
 		fmt.Println("Method: ", r.Method)
 		fmt.Println("Type:   ", r.Header["Content-Type"])
 		if len(r.Header["Authorization"]) > 0 {
-			fmt.Println("Auth:   ", r.Header["Authorization"])
+			a := r.Header["Authorization"]
+			fmt.Println("Auth:   ", a)
+			if strings.HasPrefix(a[0], "Basic ") {
+				a0 := strings.TrimSpace(a[0][6:])
+				data, err := base64.StdEncoding.DecodeString(a0)
+				if err != nil {
+					fmt.Printf("        Could not decode: ", err)
+				} else {
+					fmt.Printf("        Decoded: %q\n", data)
+				}
+			}
 		}
 		fmt.Println("Length: ", r.ContentLength)
 		payload := make([]byte, r.ContentLength)
