@@ -1,4 +1,4 @@
-// Manage a directory tree remotely over HTTP.
+// Manage a directory tree remotely over HTTP / HTTPS.
 //
 // GET /name will serve the file of that name or 404 if not present.
 // HEAD /name will serve the metadata
@@ -25,14 +25,16 @@ import (
 )
 
 var (
-	port = flag.Uint("p", 8080, "Server `port`")
+	cert    = flag.String("cert", "", "Name of server cert `filename`, if https, requires key")
+	key     = flag.String("key", "", "Name of private key `filename`, if https, requires cert")
+	port    = flag.Uint("p", 8080, "Server `port`")
 	verbose = flag.Bool("v", false, "Verbose logging")
 	dirName string
 )
 
 func main() {
-	flag.Usage = func () {
-		o := flag.CommandLine.Output()
+	o := flag.CommandLine.Output()
+	flag.Usage = func() {
 		cmd := os.Args[0]
 		fmt.Fprintf(o, "Serve files in a directory in response to GET and replace them in response to PUT.\n\n")
 		fmt.Fprintf(o, "Usage of %s:\n", cmd)
@@ -42,6 +44,12 @@ func main() {
 	}
 	flag.Parse()
 	if len(flag.Args()) != 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Error: Exactly one directory name required\n\n")
+		flag.Usage()
+		os.Exit(2)
+	}
+	if (*cert == "") != (*key == "") {
+		fmt.Fprintf(o, "Error: Both cert and key required if either present\n\n")
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -119,7 +127,7 @@ func main() {
 					n, err := fmt.Sscanf(rng[0], "bytes=%d-%d", &from, &to)
 					if err == nil && n == 2 && from <= to && to < len(contents) {
 						w.WriteHeader(206)
-						w.Write(contents[from:to+1])
+						w.Write(contents[from : to+1])
 						return
 					}
 				}
@@ -146,7 +154,7 @@ func main() {
 				w.WriteHeader(204)
 			}
 
-		case "PUT":
+		case "PUT", "POST":
 			fullname := path.Join(dirName, filename)
 			subdirname := path.Dir(fullname)
 			err := os.MkdirAll(subdirname, 0o777)
@@ -186,5 +194,11 @@ func main() {
 		}
 	})
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
+	var e any
+	if *cert != "" {
+		e = http.ListenAndServeTLS(fmt.Sprintf(":%d", *port), *cert, *key, nil)
+	} else {
+		e = http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
+	}
+	log.Fatal(e)
 }
