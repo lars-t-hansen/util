@@ -1,16 +1,30 @@
-// Manage a directory tree remotely over HTTP / HTTPS.
+// HttpRepo manages a directory tree remotely over HTTP / HTTPS.
+//
+// Usage:
+//   httprepo [options] directory
+//
+// Options:
+//   -cert  Server cert file, if using (requires key)
+//   -key   Server key file, if using (requires cert)
+//   -p     Port, default 8080
+//   -v     Verbose
 //
 // GET /name will serve the file of that name or 404 if not present.
-// HEAD /name will serve the metadata
+//
+// HEAD /name will serve the metadata, ditto
 //
 // PUT /name will replace the file or create a new one with the input given, and may create new
 // subdirectories.
 //
+// POST /name will append to the file, creating it if necessary, and may create new subdirectories.
+//
+// DELETE /name will delete the file.
+package main
+
+// TODO: for properly configured hosts there's already an official cert and we could be doing
+//       https without the cert/key, and there should be an option for that?
 // TODO: better metadata for GET/HEAD, notably mime type, mod date, and size
 // TODO: Could implement GET on .../ as a command to list the contents of that directory
-// TODO: Could implement DELETE
-
-package main
 
 import (
 	"flag"
@@ -155,6 +169,7 @@ func main() {
 			}
 
 		case "PUT", "POST":
+			isPost := r.Method == "POST"
 			fullname := path.Join(dirName, filename)
 			subdirname := path.Dir(fullname)
 			err := os.MkdirAll(subdirname, 0o777)
@@ -166,7 +181,7 @@ func main() {
 				return
 			}
 			if *verbose {
-				log.Printf("PUT %s", fullname)
+				log.Printf("%s %s", r.Method, fullname)
 			}
 			bytes, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -176,7 +191,11 @@ func main() {
 				w.WriteHeader(422)
 				return
 			}
-			err = os.WriteFile(fullname, bytes, 0o664)
+			if isPost {
+				err = AppendFile(fullname, bytes, 0o664)
+			} else {
+				err = os.WriteFile(fullname, bytes, 0o664)
+			}
 			if err != nil {
 				if *verbose {
 					log.Printf("Failed to write output")
@@ -201,4 +220,14 @@ func main() {
 		e = http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 	}
 	log.Fatal(e)
+}
+
+func AppendFile(filename string, bs []byte, mode os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(bs)
+	return err
 }
