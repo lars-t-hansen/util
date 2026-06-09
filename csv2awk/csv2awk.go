@@ -1,7 +1,10 @@
+// Csv2awk converts CSV files to AWK-friendly space-separated-column files.  Empty
+// input columns are given the synthetic value ".".  Spaces in values are translated
+// to underscore.
+//
 // Usage: csv2awk
 //
 // Reads stdin, writes to stdout
-
 package main
 
 import (
@@ -29,6 +32,9 @@ func main() {
 		for i, f := range r {
 			if i > 0 {
 				fmt.Fprint(output, " ")
+			}
+			if f == "" {
+				f = "."
 			}
 			fmt.Fprint(output, strings.ReplaceAll(f, " ", "_"))
 		}
