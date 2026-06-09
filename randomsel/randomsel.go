@@ -1,8 +1,7 @@
-// Print a random selection of lines from a file, in the original order.  Reads from stdin, writes
+// Randomsel prints a random selection of lines from a file, in the original order.  Reads from stdin, writes
 // to stdout.
 //
 // This is not intended to be clever.  Extremely Huge (tm) files may defeat it.
-
 package main
 
 import (
@@ -16,13 +15,13 @@ import (
 
 var (
 	atLeast = flag.Uint("atleast", 0, "Print at least this many lines (up to file length)")
-	pct = flag.Float64("pct", 0, "Print this percentage of lines")
+	pct     = flag.Float64("pct", 0, "Print this percentage of lines")
 )
 
 func main() {
 	flag.Parse()
 	if *atLeast == 0 && *pct == 0 {
-		fmt.Fprintln(os.Stderr, "At least one of -atleast and -pct is required.\n")
+		fmt.Fprint(os.Stderr, "At least one of -atleast and -pct is required.\n\n")
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -50,12 +49,12 @@ func main() {
 
 	// Bag of candidates, indices into `ls`
 	cand := make([]int, len(ls))
-	for i := 0 ; i < len(cand); i++ {
+	for i := 0; i < len(cand); i++ {
 		cand[i] = i
 	}
 
 	// Permute the candidates
-	for i := 0 ; i < len(cand) ; i++ {
+	for i := 0; i < len(cand); i++ {
 		r := rand.Intn(len(cand))
 		cand[i], cand[r] = cand[r], cand[i]
 	}
