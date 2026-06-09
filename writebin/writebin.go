@@ -1,7 +1,4 @@
-// -*- fill-column: 100 -*-
-//
-// Create a binary file from textual byte values, see help text below.
-
+// Writebin create a binary file from textual byte values, run -h for full help.
 package main
 
 import (

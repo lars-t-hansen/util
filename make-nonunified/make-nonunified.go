@@ -1,10 +1,7 @@
-// -*- fill-column: 100 -*-
-
-/* Usage: make-nonunified rootdir-name
- *
- * Scan the directory tree rooted at rootdir-name and rewrite UNIFIED_SOURCES to SOURCES
- * in every moz.build file in the tree.
- */
+// Make-nonunified scans the directory tree rooted at rootdir-name and rewrite UNIFIED_SOURCES to SOURCES
+// in every moz.build file in the tree.
+//
+// Usage: make-nonunified rootdir-name
 package main
 
 import (
@@ -57,7 +54,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Println(`
+	fmt.Print(`
 Usage
   make-nonunified rootdir-name
 

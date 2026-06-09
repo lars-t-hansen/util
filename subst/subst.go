@@ -49,7 +49,6 @@ func run(patterns, input io.Reader, output io.Writer) {
 		prefix  string
 	}
 
-
 	var simple []S
 	var contextual []C
 	scanner := bufio.NewScanner(patterns)
