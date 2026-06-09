@@ -1,13 +1,15 @@
 // HttpRepo manages a directory tree remotely over HTTP / HTTPS.
 //
 // Usage:
-//   httprepo [options] directory
+//
+//	httprepo [options] directory
 //
 // Options:
-//   -cert  Server cert file, if using (requires key)
-//   -key   Server key file, if using (requires cert)
-//   -p     Port, default 8080
-//   -v     Verbose
+//
+//	-cert  Server cert file, if using (requires key)
+//	-key   Server key file, if using (requires cert)
+//	-p     Port, default 8080
+//	-v     Verbose
 //
 // GET /name will serve the file of that name or 404 if not present.
 //

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// httpdump listens for incoming http traffic, prints it on stdout, and responds "Ok".
+// Httpdump listens for incoming HTTP traffic, prints it on stdout, and responds "200 Ok" to the client.
 package main
 
 import (
@@ -31,7 +31,7 @@ func main() {
 				a0 := strings.TrimSpace(a[0][6:])
 				data, err := base64.StdEncoding.DecodeString(a0)
 				if err != nil {
-					fmt.Printf("        Could not decode: ", err)
+					fmt.Printf("        Could not decode: %v", err)
 				} else {
 					fmt.Printf("        Decoded: %q\n", data)
 				}
