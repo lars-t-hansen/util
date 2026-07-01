@@ -1,5 +1,7 @@
-// Mkfiles generates binary files of a given size with distinct content, following the name
-// pattern f<n>.bin for increasing n.  Try -h for options.
+// Mkfiles generates binary files of a given size with distinct content.
+//
+// Files are named following the pattern <prefix><n>.bin for increasing n, the prefix is "f" by
+// default.  Try -h for options.
 package main
 
 import (
@@ -14,6 +16,7 @@ var (
 	numFiles = flag.Int("n", 10, "How many files")
 	fileSize = flag.Int("z", 8, "File size in bytes, divisible by 4")
 	first    = flag.Int("f", 0, "First number for output file")
+	prefix   = flag.String("p", "f", "Prefix for file names")
 )
 
 // Obviously this could run multiple goroutines but I don't know if it would matter much,
@@ -27,6 +30,9 @@ func main() {
 	if *fileSize%4 != 0 {
 		log.Fatal("File size must divisible by 4")
 	}
+	if *prefix == "" {
+		log.Fatal("Prefix can't be empty")
+	}
 	for fno := range *numFiles {
 		x := rand.Uint32()
 		buf := make([]byte, 0, *fileSize)
@@ -34,7 +40,7 @@ func main() {
 			buf = append(buf, byte(x), byte(x/256), byte(x/(256*256)), byte(x/(256*256*256)))
 			x++
 		}
-		f, err := os.Create(fmt.Sprintf("f%d.bin", fno+*first))
+		f, err := os.Create(fmt.Sprintf("%s%d.bin", *prefix, fno+*first))
 		if err != nil {
 			log.Fatal(err)
 		}
