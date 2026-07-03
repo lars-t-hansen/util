@@ -23,6 +23,14 @@ var (
 // mostly this should be stuck on the file system.
 
 func main() {
+	flag.Usage = func() {
+		o := flag.CommandLine.Output()
+		fmt.Fprintf(o, "Generate many binary files with distinct content.\n\n")
+		fmt.Fprintf(o, "Usage of mkfiles:\n")
+		fmt.Fprintf(o, "  %s [options] directory\n\n", os.Args[0])
+		fmt.Fprintf(o, "Options:\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	if *numFiles < 0 || *fileSize < 0 || *first < 0 {
 		log.Fatal("Negative argument")
