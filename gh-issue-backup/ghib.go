@@ -39,6 +39,16 @@ package main
 // - rate limit is 5000/hour for authenticated users (personal access token)
 // - so we need an option to supply a token, and then we still need to
 //   pay attention to the limit, somehow
+// - we can optimize some:
+//   - for any issue, we can look at its "comments" field, and if 0, we don't
+//     need to try to fetch the comments
+//   - open issues can be grabbed with a single call (well, pagination is a thing)
+//   - a locked issue need never be considered again, so maybe the database should
+//     have a third state (need to investigate)
+// - implement notFound
+// - deal with holes in the number range as explained later.
+// - maybe the directory should be called ghib-issues not just issues
+// - maybe verbose logging should use log, not fmt
 
 import (
 	"database/sql"
