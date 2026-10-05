@@ -10,7 +10,12 @@
 //	-sel n
 //	  Print bug n
 //
-// Bzxml handles only the Bugzilla XML structure as created by our quite old bugzilla install.
+// Bzxml handles only the Bugzilla XML structure as created by our quite old bugzilla install:
+//
+//	<bugzilla>
+//	  <bug>...</bug>
+//	  ...
+//	</bugzilla>
 package main
 
 import (
@@ -20,9 +25,24 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 )
 
-type timestamp string // "yyyy-mm-dd hh:mm:zz tz" it looks like
+type Timestamp time.Time
+
+func (t *Timestamp) UnmarshalText(text []byte) error {
+	x, err := time.Parse("2006-01-02 15:04:05 -0700", string(text))
+	if err != nil {
+		return err
+	}
+	*t = Timestamp(x)
+	return nil
+}
+
+type Email struct {
+	Name string `xml:"name,attr"`
+	Addr string `xml:",chardata"`
+}
 
 type Bugzilla struct {
 	Bugs []BzBug `xml:"bug"`
@@ -30,7 +50,7 @@ type Bugzilla struct {
 
 type BzBug struct {
 	BugId       uint      `xml:"bug_id"`
-	Creation    timestamp `xml:"creation_ts"`
+	Creation    Timestamp `xml:"creation_ts"`
 	ShortDesc   string    `xml:"short_desc"`
 	Product     string    `xml:"product"`
 	Component   string    `xml:"component"`
@@ -46,14 +66,9 @@ type BzLongDesc struct {
 	CommentId    uint      `xml:"commentid"`
 	CommentCount uint      `xml:"comment_count"`
 	Who          Email     `xml:"who"`
-	When         timestamp `xml:"bug_when"`
+	When         Timestamp `xml:"bug_when"`
 	TheText      string    `xml:"thetext"`
 	// there are more fields
-}
-
-type Email struct {
-	Name string `xml:"name,attr"`
-	Addr string `xml:",chardata"`
 }
 
 var (
@@ -81,9 +96,9 @@ func main() {
 		for _, b := range bz.Bugs {
 			if b.BugId == *selFlag {
 				fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
-				fmt.Printf("  %s %s\n", b.Product, b.Component)
+				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, time.Time(b.Creation).Format(time.RFC3339))
 				for _, c := range b.Comments {
-					fmt.Printf("-------\n%s <%s>\n%s\n", c.Who.Name, c.Who.Addr, c.TheText)
+					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, time.Time(c.When).Format(time.RFC3339), c.TheText)
 				}
 				fmt.Printf("-------\n")
 				break
