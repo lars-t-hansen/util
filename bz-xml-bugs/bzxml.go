@@ -16,6 +16,8 @@
 //	  <bug>...</bug>
 //	  ...
 //	</bugzilla>
+//
+// See code for the exact structure supported.
 package main
 
 import (
@@ -37,6 +39,10 @@ func (t *Timestamp) UnmarshalText(text []byte) error {
 	}
 	*t = Timestamp(x)
 	return nil
+}
+
+func (t *Timestamp) Format(fmt string) string {
+	return time.Time(*t).Format(fmt)
 }
 
 type Email struct {
@@ -96,9 +102,9 @@ func main() {
 		for _, b := range bz.Bugs {
 			if b.BugId == *selFlag {
 				fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
-				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, time.Time(b.Creation).Format(time.RFC3339))
+				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, b.Creation.Format(time.RFC3339))
 				for _, c := range b.Comments {
-					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, time.Time(c.When).Format(time.RFC3339), c.TheText)
+					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, c.When.Format(time.RFC3339), c.TheText)
 				}
 				fmt.Printf("-------\n")
 				break
