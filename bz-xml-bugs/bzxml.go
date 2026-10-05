@@ -30,6 +30,16 @@ import (
 	"time"
 )
 
+// A number of string fields below could be custom types, notably Priority, Severity, and Keywords,
+// but it hasn't been worth the bother yet.
+
+type Bool bool
+
+func (b *Bool) UnmarshalText(text []byte) error {
+	*b = string(text) != "0"
+	return nil
+}
+
 type Timestamp time.Time
 
 func (t *Timestamp) UnmarshalText(text []byte) error {
@@ -55,26 +65,58 @@ type Bugzilla struct {
 }
 
 type BzBug struct {
-	BugId       uint      `xml:"bug_id"`
-	Creation    Timestamp `xml:"creation_ts"`
-	ShortDesc   string    `xml:"short_desc"`
-	Product     string    `xml:"product"`
-	Component   string    `xml:"component"`
-	RepPlatform string    `xml:"rep_platform"`
-	BugStatus   string    `xml:"bug_status"`
-	Resolution  string    `xml:"resolution"`
-	Priority    string    `xml:"priority"`
-	// there are many more fields
-	Comments []BzLongDesc `xml:"long_desc"`
+	BugId              uint           `xml:"bug_id"`
+	CreationTs         Timestamp      `xml:"creation_ts"`
+	ShortDesc          string         `xml:"short_desc"`
+	ReporterAccessible Bool           `xml:"reporter_accessible"`
+	CCListAccessible   Bool           `xml:"cclist_accessible"`
+	Classification     string         `xml:"classification"`
+	Product            string         `xml:"product"`
+	Component          string         `xml:"component"`
+	Version            string         `xml:"version"`
+	RepPlatform        string         `xml:"rep_platform"`
+	OpSys              string         `xml:"op_sys"`
+	BugStatus          string         `xml:"bug_status"`
+	Resolution         string         `xml:"resolution"`
+	BugFileLoc         string         `xml:"bug_file_loc"`
+	StatusWhiteboard   string         `xml:"status_whiteboard"`
+	Keywords           string         `xml:"keywords"`
+	Priority           string         `xml:"priority"`
+	BugSeverity        string         `xml:"bug_severity"`
+	TargetMilestone    string         `xml:"target_milestone"`
+	EverConfirmed      Bool           `xml:"everconfirmed"`
+	Reporter           Email          `xml:"reporter"`
+	AssignedTo         Email          `xml:"assigned_to"`
+	CC                 []string       `xml:"cc"`
+	EstimatedTime      float64        `xml:"estimated_time"`
+	RemainingTime      float64        `xml:"remaining_time"`
+	ActualTime         float64        `xml:"actual_time"`
+	CfSvnRevision      string         `xml:"cf_svn_revision"`
+	CfFixedIn          string         `xml:"cf_fixed_in"`
+	Token              string         `xml:"token"`
+	LongDescs          []BzLongDesc   `xml:"long_desc"`
+	Attachments        []BzAttachment `xml:"attachment"`
 }
 
 type BzLongDesc struct {
+	IsPrivate    Bool      `xml:"isprivate,attr"`
 	CommentId    uint      `xml:"commentid"`
 	CommentCount uint      `xml:"comment_count"`
+	AttachId     uint      `xml:"attachid"`
 	Who          Email     `xml:"who"`
-	When         Timestamp `xml:"bug_when"`
+	BugWhen      Timestamp `xml:"bug_when"`
 	TheText      string    `xml:"thetext"`
-	// there are more fields
+}
+
+type BzAttachment struct {
+	AttachId uint      `xml:"attachid"`
+	Date     Timestamp `xml:"date"`
+	Desc     string    `xml:"desc"`
+	Filename string    `xml:"filename"`
+	Type     string    `xml:"type"`
+	Size     uint      `xml:"size"`
+	Attacher Email     `xml:"attacher"`
+	Token    string    `xml:"token"`
 }
 
 var (
@@ -102,9 +144,9 @@ func main() {
 		for _, b := range bz.Bugs {
 			if b.BugId == *selFlag {
 				fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
-				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, b.Creation.Format(time.RFC3339))
-				for _, c := range b.Comments {
-					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, c.When.Format(time.RFC3339), c.TheText)
+				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, b.CreationTs.Format(time.RFC3339))
+				for _, c := range b.LongDescs {
+					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, c.BugWhen.Format(time.RFC3339), c.TheText)
 				}
 				fmt.Printf("-------\n")
 				break
