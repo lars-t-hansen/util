@@ -78,7 +78,7 @@ var db *sql.DB
 func main() {
 	var err error
 
-	rest := FlagParse("ghib", []string{"repo"})
+	rest := FlagParse("ghib", "repo")
 	repo = rest[0]
 
 	db, err = sql.Open("sqlite3", "ghib.db")

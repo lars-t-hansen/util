@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// From https://github.com/lars-t-hansen/util/go-utils
+// From https://github.com/lars-t-hansen/util/go-utils, since modified.
 
 package main
 
@@ -17,7 +17,7 @@ import (
 // Trailing specs any trailing args.  Basically if we have ["a" "b" "..."] then we require one arg
 // and the bs are optional and there can be many.  If we have ["a" "b"] then we require exactly 2.
 // There may not be a "..." by itself.
-func FlagParse(command string, trailing []string) []string {
+func FlagParse(command string, trailing ...string) []string {
 	var required int
 	var optional bool
 	if len(trailing) > 0 {
