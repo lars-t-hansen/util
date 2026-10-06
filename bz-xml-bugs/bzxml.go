@@ -10,14 +10,29 @@
 //	-sel n
 //	  Print bug n
 //
-// Bzxml handles only the Bugzilla XML structure as created by our quite old bugzilla install:
+// Bzxml handles the Bugzilla XML structure as created by an older bugzilla, as used by
+// nordugrid/ARC.  The top-level structure is:
 //
 //	<bugzilla>
-//	  <bug>...</bug>
-//	  ...
+//	  <bug>
+//	    <bug_id>...</bug_id>
+//	    <short_desc>...</short_desc>
+//	    <long_desc>
+//	      <who>...</who>
+//	      <thetext>...</thetext>
+//	      ...
+//	    </long_desc>
+//	    ...
+//	    <attachment>
+//	      <desc>...</desc>
+//	      ...
+//	    </attachment>
+//	    ...
+//	    </bug>
+//	    ...
 //	</bugzilla>
 //
-// See code for the exact structure supported.
+// There are many fields.  See the code for the exact structure supported.
 package main
 
 import (
