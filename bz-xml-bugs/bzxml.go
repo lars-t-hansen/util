@@ -7,8 +7,11 @@
 //
 // Options:
 //
-//	-sel n
-//	  Print bug n
+//		-sel n
+//		  Print bug n
+//
+//	 -json
+//	   Print out a JSON representation (a prototype)
 //
 // Bzxml handles the Bugzilla XML structure as created by an older bugzilla, as used by
 // nordugrid/ARC.  The top-level structure is:
@@ -36,6 +39,7 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -135,7 +139,8 @@ type BzAttachment struct {
 }
 
 var (
-	selFlag = flag.Uint("sel", 0, "Select a specific bug")
+	selFlag  = flag.Uint("sel", 0, "Select a specific bug")
+	jsonFlag = flag.Bool("json", false, "Print JSON (a prototype)")
 )
 
 func main() {
@@ -158,19 +163,100 @@ func main() {
 	if *selFlag > 0 {
 		for _, b := range bz.Bugs {
 			if b.BugId == *selFlag {
-				fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
-				fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, b.CreationTs.Format(time.RFC3339))
-				for _, c := range b.LongDescs {
-					fmt.Printf("-------\n%s <%s> @ %s\n%s\n", c.Who.Name, c.Who.Addr, c.BugWhen.Format(time.RFC3339), c.TheText)
+				if *jsonFlag {
+					jsonLongForm(b)
+				} else {
+					textLongForm(b)
 				}
-				fmt.Printf("-------\n")
 				break
 			}
 		}
 	} else {
-		// The default is to just print the ID and title
 		for _, b := range bz.Bugs {
-			fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
+			if *jsonFlag {
+				jsonShortForm(b)
+			} else {
+				textShortForm(b)
+			}
 		}
 	}
+}
+
+func putJson(v any) {
+	bs, err := json.Marshal(v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = os.Stdout.Write(bs)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// The forms here are just meant as examples.
+//
+// Notably for the long form, we could add json tags to all fields on the BzBug and just print that,
+// but that's unlikely to be right for any consumer.  So for now, just follow textLongForm and
+// create a custom structure, this can then be adapted for other consumers.
+//
+// For the short form, it's just for debugging anyway so just print id and short description.
+
+func textLongForm(b BzBug) {
+	fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
+	fmt.Printf("  %s / %s @ %s\n", b.Product, b.Component, b.CreationTs.Format(time.RFC3339))
+	for _, c := range b.LongDescs {
+		fmt.Printf("-------\n%s <%s> @ %s\n%s\n",
+			c.Who.Name, c.Who.Addr, c.BugWhen.Format(time.RFC3339), c.TheText)
+	}
+	fmt.Printf("-------\n")
+}
+
+type jsonLong struct {
+	Id         uint           `json:"id"`
+	ShortDesc  string         `json:"short_desc"`
+	Product    string         `json:"product"`
+	Component  string         `json:"component"`
+	CreationTs Timestamp      `json:"creation_time"`
+	LongDescs  []jsonLongDesc `json:"long_descs,omitempty"`
+}
+
+type jsonLongDesc struct {
+	Name string    `json:"Name"`
+	Addr string    `json:"Addr"`
+	When Timestamp `json:"when"`
+	Text string    `json:"text"`
+}
+
+func jsonLongForm(b BzBug) {
+	var v jsonLong
+	v.Id = b.BugId
+	v.ShortDesc = b.ShortDesc
+	v.Product = b.Product
+	v.Component = b.Component
+	v.CreationTs = b.CreationTs
+	for _, c := range b.LongDescs {
+		var ld jsonLongDesc
+		ld.Name = c.Who.Name
+		ld.Addr = c.Who.Addr
+		ld.When = c.BugWhen
+		ld.Text = c.TheText
+		v.LongDescs = append(v.LongDescs, ld)
+	}
+	putJson(&v)
+}
+
+func textShortForm(b BzBug) {
+	fmt.Printf("%d  %s\n", b.BugId, b.ShortDesc)
+}
+
+type jsonShort struct {
+	Id        uint   `json:"id"`
+	ShortDesc string `json:"desc"`
+}
+
+func jsonShortForm(b BzBug) {
+	var v jsonShort
+	v.Id = b.BugId
+	v.ShortDesc = b.ShortDesc
+	putJson(&v)
 }
